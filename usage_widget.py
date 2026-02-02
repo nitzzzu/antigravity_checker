@@ -38,12 +38,35 @@ def safe_import_claude():
 
 
 def format_reset_time(reset_time_str):
-    """Format reset time as HH:MM"""
+    """Format reset time as HH:MM (~remaining)"""
     if not reset_time_str:
         return ""
     try:
         reset_time = datetime.fromisoformat(reset_time_str.replace('Z', '+00:00'))
-        return reset_time.astimezone().strftime('%H:%M')
+        local_reset = reset_time.astimezone()
+        time_str = local_reset.strftime('%H:%M')
+        
+        # Calculate remaining time
+        now = datetime.now(local_reset.tzinfo)
+        remaining = local_reset - now
+        total_seconds = int(remaining.total_seconds())
+        
+        if total_seconds <= 0:
+            return time_str
+        
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+        
+        # Format remaining time
+        if days > 0:
+            remaining_str = f"~{days}D{hours}h{minutes}m"
+        elif hours > 0:
+            remaining_str = f"~{hours}h{minutes}m" if minutes > 0 else f"~{hours}h"
+        else:
+            remaining_str = f"~{minutes}m"
+        
+        return f"{time_str} ({remaining_str})"
     except:
         return ""
 
@@ -140,7 +163,7 @@ class UsageWidget:
         
         # Size & position
         self.root.update_idletasks()
-        w, h = 210, 235
+        w, h = 250, 235
         x = self.root.winfo_screenwidth() - w - 20
         y = self.root.winfo_screenheight() - h - 60
         self.root.geometry(f'{w}x{h}+{x}+{y}')
