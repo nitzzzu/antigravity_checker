@@ -194,9 +194,10 @@ class UsageWidget:
             color = self.get_color(pct)
             r['fill'].configure(bg=color)
             r['fill'].place(relwidth=min(pct, 100) / 100)
-            # Text always on dark background, only goes dark when fill reaches center (50%+)
+            # Text bg matches fill when bar covers center (50%+), fg goes dark for contrast
+            text_bg = color if pct >= 50 else self.bar_bg
             text_fg = '#1e1e2e' if pct >= 50 else self.fg
-            r['pct'].configure(text=f"{pct:.0f}%", bg=self.bar_bg, fg=text_fg)
+            r['pct'].configure(text=f"{pct:.0f}%", bg=text_bg, fg=text_fg)
             r['reset'].configure(text=reset if reset else "")
     
     def refresh_data(self):
