@@ -104,31 +104,36 @@ class UsageWidget:
         
         self.rows = {}
         
+        # Antigravity section header
+        ag_header = tk.Label(self.content, text="Antigravity", bg=self.bg, fg=self.accent, 
+                              font=('Segoe UI', 8, 'bold'), anchor='w')
+        ag_header.grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 2))
+        
         # Antigravity groups
-        self._create_row("ag_claude", "Claude", 0)
-        self._create_row("ag_gemini", "Gemini", 1)
-        self._create_row("ag_flash", "Flash", 2)
-        self._create_row("ag_nano", "Nano 🍌", 3)
+        self._create_row("ag_claude", "Claude", 1)
+        self._create_row("ag_gemini", "G3 Pro", 2)
+        self._create_row("ag_flash", "G3 Flash", 3)
+        self._create_row("ag_nano", "Nano 🍌", 4)
         
         # Separator
-        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=4, column=0, columnspan=3, sticky='ew', pady=4)
+        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=5, column=0, columnspan=3, sticky='ew', pady=4)
         
         # Claude Code section header
         cc_header = tk.Label(self.content, text="Claude Code", bg=self.bg, fg=self.accent, 
                               font=('Segoe UI', 8, 'bold'), anchor='w')
-        cc_header.grid(row=5, column=0, columnspan=3, sticky='w', pady=(2, 0))
+        cc_header.grid(row=6, column=0, columnspan=3, sticky='w', pady=(2, 2))
         
         # Claude Code rows
-        self._create_row("cc_5h", "5 Hour", 6)
-        self._create_row("cc_7d", "7 Day", 7)
+        self._create_row("cc_5h", "5 Hour", 7)
+        self._create_row("cc_7d", "7 Day", 8)
         
         # Update label
         self.update_lbl = tk.Label(self.content, text="", bg=self.bg, fg=self.dim, font=('Segoe UI', 7))
-        self.update_lbl.grid(row=8, column=0, columnspan=3, sticky='e', pady=(4, 0))
+        self.update_lbl.grid(row=9, column=0, columnspan=3, sticky='e', pady=(4, 0))
         
         # Size & position
         self.root.update_idletasks()
-        w, h = 210, 220
+        w, h = 210, 235
         x = self.root.winfo_screenwidth() - w - 20
         y = self.root.winfo_screenheight() - h - 60
         self.root.geometry(f'{w}x{h}+{x}+{y}')
@@ -182,10 +187,9 @@ class UsageWidget:
             color = self.get_color(pct)
             r['fill'].configure(bg=color)
             r['fill'].place(relwidth=min(pct, 100) / 100)
-            # Text color based on fill
-            text_bg = color if pct > 30 else self.bar_bg
-            text_fg = '#1e1e2e' if pct > 50 else self.fg
-            r['pct'].configure(text=f"{pct:.0f}%", bg=text_bg, fg=text_fg)
+            # Text always on dark background, only goes dark when fill reaches center (50%+)
+            text_fg = '#1e1e2e' if pct >= 50 else self.fg
+            r['pct'].configure(text=f"{pct:.0f}%", bg=self.bar_bg, fg=text_fg)
             r['reset'].configure(text=reset if reset else "")
     
     def refresh_data(self):

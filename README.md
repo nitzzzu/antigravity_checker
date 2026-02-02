@@ -1,5 +1,14 @@
 # Antigravity Checker
 
+```
+    ___          __  _                       _ __       
+   /   |  ____  / /_(_)___ __________ __   _(_) /___  __
+  / /| | / __ \/ __/ / __ `/ ___/ __ `/ | / / / __/ / /
+ / ___ |/ / / / /_/ / /_/ / /  / /_/ /| |/ / / /_/ /_/ 
+/_/  |_/_/ /_/\__/_/\__, /_/   \__,_/ |___/_/\__/\__, /  
+                   /____/     Checker           /____/   
+```
+
 A simple, single-file Python script to check your Antigravity AI model quota.
 
 ## Features
@@ -25,7 +34,36 @@ python antigravity_checker.py logout
 python antigravity_checker.py help
 ```
 
-## Example Output
+## Claude Checker
+
+Check your Claude Code usage limits (requires Claude Code login).
+
+```bash
+# Check usage
+python claude_checker.py
+
+# Show raw API response
+python claude_checker.py --raw
+```
+
+### Example Output
+
+```
+======================================================================
+  CLAUDE CODE USAGE STATUS
+======================================================================
+
+  5-Hour Limit
+    ██████░░░░  27.0% used  |  73.0% remaining  |  Resets in: 4h12m
+
+  7-Day All Models
+    ░░░░░░░░░░   0.0% used  |  100.0% remaining  |  Resets in: 6d23h
+
+----------------------------------------------------------------------
+  Color Legend: ● Safe (0-50%)  ● Warning (50-80%)  ● Critical (80-100%)
+```
+
+## Antigravity Example Output
 
 ```
 ============================================================
@@ -93,6 +131,51 @@ The script communicates with official Google APIs only:
 - Python 3.7+
 - No external dependencies (uses `urllib`)
 - Optional: `requests` library for better HTTP handling
+
+## Usage Widget
+
+```
+┌─────────────────────────────┐
+│ ⚡ AI Usage           ↻  ✕ │
+├─────────────────────────────┤
+│ Antigravity                 │
+│ Claude    ████░░░░░░ 40%    │
+│ G3 Pro    ██░░░░░░░░ 20%    │
+│ G3 Flash  ░░░░░░░░░░  0%    │
+│ Nano 🍌   ██░░░░░░░░ 20%    │
+├─────────────────────────────┤
+│ Claude Code                 │
+│ 5 Hour    ███░░░░░░░ 27%    │
+│ 7 Day     ░░░░░░░░░░  0%    │
+│              Updated 17:45  │
+└─────────────────────────────┘
+```
+
+A floating desktop widget that displays real-time quota status for both Antigravity and Claude Code.
+
+### Features
+
+- **Always-on-top** - Stays visible while you work
+- **Auto-refresh** - Updates every 60 seconds
+- **Grouped models** - Claude, G3 Pro, G3 Flash, Nano 🍌
+- **Color-coded** - Green (0-50%), Yellow (50-80%), Red (80%+)
+- **Reset times** - Shows when quotas reset
+- **Draggable** - Position anywhere on screen
+
+### Running the Widget
+
+```bash
+# With console (for debugging)
+python usage_widget.py
+
+# Without console window (recommended)
+pythonw usage_widget.py
+```
+
+### Auto-start with Windows
+
+1. Press `Win + R`, type `shell:startup`, press Enter
+2. Create a shortcut to `pythonw C:\path\to\usage_widget.py`
 
 ## License
 
