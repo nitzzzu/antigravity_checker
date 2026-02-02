@@ -22,6 +22,21 @@ from urllib.parse import urlencode, parse_qs, urlparse
 from pathlib import Path
 from datetime import datetime
 
+# Fix Windows console encoding
+if sys.platform == 'win32':
+    # Enable UTF-8 mode on Windows
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+    # Also try to enable ANSI escape sequences on Windows 10+
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+    except Exception:
+        pass
+
 # Try to use requests if available, otherwise use urllib
 try:
     import requests
@@ -30,6 +45,17 @@ except ImportError:
     import urllib.request
     import urllib.error
     HAS_REQUESTS = False
+
+# Check if terminal supports Unicode (fallback to ASCII)
+def supports_unicode():
+    """Check if terminal supports Unicode characters"""
+    try:
+        '█░'.encode(sys.stdout.encoding or 'utf-8')
+        return True
+    except (UnicodeEncodeError, LookupError):
+        return False
+
+USE_UNICODE = supports_unicode()
 
 # =============================================================================
 # Configuration
@@ -57,6 +83,16 @@ if _arch in ('x86_64', 'amd64'):
 elif _arch in ('arm64', 'aarch64'):
     _arch = 'arm64'
 USER_AGENT = f'antigravity/1.15.8 {_os}/{_arch}'
+
+# Global flags
+JSON_MODE = False
+
+def log(*args, **kwargs):
+    """Log to stderr if JSON_MODE is True, else stdout"""
+    if JSON_MODE:
+        print(*args, file=sys.stderr, **kwargs)
+    else:
+        print(*args, **kwargs)
 
 # API Config
 API_BASE_URL = 'https://cloudcode-pa.googleapis.com'
@@ -363,21 +399,25 @@ def fetch_available_models(access_token, project_id=None):
 # =============================================================================
 
 def format_time_until(reset_time_str):
-    """Format time until reset"""
+    """Format time until reset with local time in 24hr format"""
     try:
         reset_time = datetime.fromisoformat(reset_time_str.replace('Z', '+00:00'))
         now = datetime.now(reset_time.tzinfo)
         diff = reset_time - now
         
+        # Convert to local time for display
+        local_reset = reset_time.astimezone()
+        local_time_str = local_reset.strftime('%H:%M')
+        
         if diff.total_seconds() <= 0:
-            return "now"
+            return f"now ({local_time_str})"
         
         hours = int(diff.total_seconds() // 3600)
         minutes = int((diff.total_seconds() % 3600) // 60)
         
         if hours > 0:
-            return f"{hours}h {minutes}m"
-        return f"{minutes}m"
+            return f"{hours}h{minutes}m ({local_time_str})"
+        return f"{minutes}m ({local_time_str})"
     except:
         return "?"
 
@@ -417,39 +457,16 @@ def display_quota(models_response, code_assist_response, show_raw=False):
     }
     plan_type = plan_map.get(tier_id, tier_id)
     
-    print(f"\n  Plan: {plan_type} ({tier_name})")
-    if tier_desc and tier_desc != tier_name:
-        print(f"  Description: {tier_desc}")
-    
-    # Show upgrade info if available
-    paid_tier = code_assist_response.get('paidTier', {})
-    if paid_tier and tier_id == 'free-tier':
-        upgrade_text = current_tier.get('upgradeSubscriptionText', '')
-        if upgrade_text:
-            # Truncate if too long
-            if len(upgrade_text) > 80:
-                upgrade_text = upgrade_text[:77] + "..."
-            print(f"  Upgrade: {upgrade_text}")
+    if not JSON_MODE:
+        print(f"\n  Plan: {plan_type} ({tier_name})")
     
     if monthly > 0:
         used = monthly - available
         pct = (used / monthly) * 100
-        print(f"  Prompt Credits: {available:,} remaining / {monthly:,} monthly ({pct:.1f}% used)")
+        if not JSON_MODE:
+            print(f"  Prompt Credits: {available:,} remaining / {monthly:,} monthly ({pct:.1f}% used)")
     
-    # -------------------------------------------------------------------------
-    # Model Categories
-    # -------------------------------------------------------------------------
-    default_agent = models_response.get('defaultAgentModelId', '-')
-    command_models = models_response.get('commandModelIds', [])
-    tab_models = models_response.get('tabModelIds', [])
-    image_models = models_response.get('imageGenerationModelIds', [])
-    web_search_models = models_response.get('webSearchModelIds', [])
-    
-    print(f"\n  Default Agent Model: {default_agent}")
-    if command_models:
-        print(f"  Command Models: {', '.join(command_models)}")
-    if image_models:
-        print(f"  Image Gen Models: {', '.join(image_models)}")
+
     
     # -------------------------------------------------------------------------
     # Models Table
@@ -460,19 +477,59 @@ def display_quota(models_response, code_assist_response, show_raw=False):
         print("\n  No model quota information available.")
         return
     
+    # Filter out Internal models and tab_flash_lite_preview
+    filtered_models = {
+        model_id: info for model_id, info in models.items()
+        if not info.get('isInternal') and model_id != 'tab_flash_lite_preview'
+    }
+    
     # Count stats
-    total_models = len(models)
-    exhausted_models = sum(1 for m in models.values() if m.get('quotaInfo', {}).get('isExhausted'))
+    total_models = len(filtered_models)
     
-    print(f"\n  Total Models: {total_models} ({exhausted_models} exhausted)")
+    def check_exhausted(info):
+        q = info.get('quotaInfo', {})
+        # Exhausted if explicitly set OR if remainingFraction is missing
+        return q.get('isExhausted') or 'remainingFraction' not in q
+
+    exhausted_models = sum(1 for m in filtered_models.values() if check_exhausted(m))
     
-    print("\n  MODEL DETAILS:")
-    print("  " + "-" * 86)
-    print(f"  {'Model':<26} {'Provider':<8} {'Used':<8} {'Reset':<8} {'Context':<9} {'Output':<9} {'Caps':<8}")
-    print("  " + "-" * 86)
+    if not JSON_MODE:
+        print(f"\n  Total Models: {total_models} ({exhausted_models} exhausted)")
     
-    for model_id, info in sorted(models.items()):
+    # ANSI color codes
+    reset = '\033[0m'
+    bold = '\033[1m'
+    green = '\033[92m'
+    yellow = '\033[93m'
+    red = '\033[91m'
+    
+    def get_color(pct):
+        if pct < 50:
+            return green
+        elif pct < 80:
+            return yellow
+        return red
+    
+    def create_bar(pct, width=10):
+        capped = min(pct / 100.0, 1.0)
+        filled = int(capped * width)
+        empty = width - filled
+        if USE_UNICODE:
+            return '█' * filled + '░' * empty
+        else:
+            return '#' * filled + '-' * empty
+    
+    if not JSON_MODE:
+        print("\n  MODEL USAGE:")
+        print()
+    
+    json_models = []
+    
+    for model_id, info in sorted(filtered_models.items()):
         quota_info = info.get('quotaInfo', {})
+        
+        # Check if remainingFraction is present
+        has_usage_data = 'remainingFraction' in quota_info
         remaining = quota_info.get('remainingFraction', 1.0)
         reset_time = quota_info.get('resetTime', '')
         is_exhausted = quota_info.get('isExhausted', False)
@@ -485,50 +542,75 @@ def display_quota(models_response, code_assist_response, show_raw=False):
             provider = 'Anthropic'
         elif 'OPENAI' in provider_raw:
             provider = 'OpenAI'
-        elif info.get('isInternal'):
-            provider = 'Internal'
         else:
             provider = '-'
         
-        # Token limits
-        max_tokens = info.get('maxTokens')
-        max_output = info.get('maxOutputTokens')
+        # Usage percentage
+        if has_usage_data:
+            used_pct = (1 - remaining) * 100
+        else:
+            # Missing usage data implies exhausted (100% used)
+            used_pct = 100.0
+            
+        remaining_pct = 100 - used_pct
         
-        # Usage
-        used_pct = (1 - remaining) * 100
-        used_str = "EXHAUST" if is_exhausted else f"{used_pct:.0f}%"
+        # Reset time
         reset_str = format_time_until(reset_time) if reset_time else "-"
         
-        # Format token counts
-        def fmt_tokens(n):
-            if not n: return "-"
-            if n >= 1000000: return f"{n // 1000000}M"
-            if n >= 1000: return f"{n // 1000}K"
-            return str(n)
+        # Calculate status
+        exhausted_status = is_exhausted or used_pct >= 100
+        critical_status = used_pct >= 90
+        warning_status = used_pct >= 80
+
+        if JSON_MODE:
+            json_models.append({
+                'name': model_id,
+                'provider': provider,
+                'used_pct': used_pct,
+                'remaining_pct': remaining_pct,
+                'exhausted': exhausted_status,
+                'reset_time': reset_time,
+                'reset_display': reset_str
+            })
+            continue
+
+        # Color and progress bar
+        color = get_color(used_pct)
+        bar = create_bar(used_pct)
         
-        context_str = fmt_tokens(max_tokens)
-        output_str = fmt_tokens(max_output)
+        usage_text = f"{used_pct:5.1f}% used  |  {remaining_pct:5.1f}% remaining"
         
-        # Capabilities
-        caps = []
-        if info.get('supportsThinking'):
-            budget = info.get('thinkingBudget', 0)
-            caps.append(f"T{budget//1024}K" if budget >= 1024 else "T")
-        if info.get('supportsImages'):
-            caps.append("I")
-        if info.get('supportsVideo'):
-            caps.append("V")
-        if info.get('recommended'):
-            caps.append("*")
-        caps_str = ''.join(caps) if caps else "-"
+        # Status indicator
+        if exhausted_status:
+            status = f"  {red}[EXHAUSTED]{reset}"
+        elif critical_status:
+            status = f"  {red}[CRITICAL]{reset}"
+        elif warning_status:
+            status = f"  {yellow}[WARNING]{reset}"
+        else:
+            status = ""
         
-        # Truncate model name
-        display_name = model_id[:24] + ".." if len(model_id) > 26 else model_id
+        # Truncate model name for display
+        display_name = model_id[:28] + ".." if len(model_id) > 30 else model_id
         
-        print(f"  {display_name:<26} {provider:<8} {used_str:<8} {reset_str:<8} {context_str:<9} {output_str:<9} {caps_str:<8}")
+        # Display
+        print(f"  {bold}{display_name}{reset} ({provider})")
+        print(f"    {color}{bar}{reset}  {usage_text}  |  Resets in: {reset_str}{status}")
+        print()
     
-    print("  " + "-" * 86)
-    print("\n  Capabilities: T=Thinking (with budget), I=Images, V=Video, *=Recommended")
+    if JSON_MODE:
+        output = {
+            'plan': f"{plan_type} ({tier_name})",
+            'total_models': total_models,
+            'exhausted_models': exhausted_models,
+            'models': json_models
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    # Legend
+    print("-" * 70)
+    print(f"  Color Legend: {green}●{reset} Safe (0-50%)  {yellow}●{reset} Warning (50-80%)  {red}●{reset} Critical (80-100%)")
     print()
 
 # =============================================================================
@@ -540,15 +622,15 @@ def check_quota(show_raw=False):
     tokens = get_valid_token()
     
     if not tokens:
-        print("\n[!] Failed to obtain valid credentials.")
+        log("\n[!] Failed to obtain valid credentials.")
         return 1
     
-    print(f"\n[*] Checking quota for: {tokens.get('email', 'Unknown')}")
+    log(f"\n[*] Checking quota for: {tokens.get('email', 'Unknown')}")
     
     # Load code assist
     code_assist, err = load_code_assist(tokens['access_token'])
     if err:
-        print(f"\n[!] Failed to load code assist: {err}")
+        log(f"\n[!] Failed to load code assist: {err}")
         return 1
     
     # Extract project ID
@@ -562,7 +644,7 @@ def check_quota(show_raw=False):
     # Fetch models
     models, err = fetch_available_models(tokens['access_token'], project_id)
     if err:
-        print(f"\n[!] Failed to fetch models: {err}")
+        log(f"\n[!] Failed to fetch models: {err}")
         # Still display what we can
         display_quota({}, code_assist, show_raw)
         return 1
@@ -572,25 +654,26 @@ def check_quota(show_raw=False):
 
 def main():
     """Entry point"""
+    global JSON_MODE
     args = sys.argv[1:]
     
     # Check for flags
-    show_raw = '--raw' in args or '--json' in args
-    args = [a for a in args if a not in ('--raw', '--json')]
+    if '-json' in args or '--json' in args:
+        JSON_MODE = True
+        args = [a for a in args if a not in ('-json', '--json')]
+    
+    show_raw = '--raw' in args
+    args = [a for a in args if a != '--raw']
     
     if args:
         command = args[0].lower()
         
         if command == 'login':
-            oauth_login()
-            return 0
+            return oauth_login()
         elif command == 'logout':
-            delete_tokens()
-            return 0
+            return delete_tokens()
         elif command in ['-h', '--help', 'help']:
             print(__doc__)
-            print("\nOptions:")
-            print("  --raw, --json    Show raw API response as JSON")
             return 0
         else:
             print(f"Unknown command: {command}")
