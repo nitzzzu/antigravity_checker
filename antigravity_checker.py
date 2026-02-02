@@ -49,10 +49,12 @@ except ImportError:
 # Check if terminal supports Unicode (fallback to ASCII)
 def supports_unicode():
     """Check if terminal supports Unicode characters"""
+    if sys.stdout is None:
+        return True  # Assume Unicode support when no console
     try:
         '█░'.encode(sys.stdout.encoding or 'utf-8')
         return True
-    except (UnicodeEncodeError, LookupError):
+    except (UnicodeEncodeError, LookupError, AttributeError):
         return False
 
 USE_UNICODE = supports_unicode()

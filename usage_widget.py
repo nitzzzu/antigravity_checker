@@ -11,14 +11,21 @@ import io
 from datetime import datetime
 from contextlib import redirect_stdout, redirect_stderr
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Get the directory where this script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Change working directory to script location (needed for shortcuts)
+os.chdir(SCRIPT_DIR)
+
+# Add script directory to Python path for imports
+sys.path.insert(0, SCRIPT_DIR)
 
 
 def safe_import_antigravity():
     try:
         from antigravity_checker import get_valid_token, load_code_assist, fetch_available_models
         return get_valid_token, load_code_assist, fetch_available_models
-    except:
+    except Exception:
         return None, None, None
 
 
@@ -26,7 +33,7 @@ def safe_import_claude():
     try:
         from claude_checker import load_credentials, fetch_usage
         return load_credentials, fetch_usage
-    except:
+    except Exception:
         return None, None
 
 
@@ -239,7 +246,7 @@ class UsageWidget:
                                 g['rst'] = rst
             return {'groups': groups}
         except Exception as e:
-            return {'error': str(e)[:12]}
+            return {'error': str(e)[:20]}
     
     def _get_claude_data(self):
         load_credentials, fetch_usage = safe_import_claude()
