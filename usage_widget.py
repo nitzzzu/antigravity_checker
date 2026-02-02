@@ -257,7 +257,11 @@ class UsageWidget:
                 if info.get('isInternal'):
                     continue
                 q = info.get('quotaInfo', {})
-                used = (1 - q.get('remainingFraction', 1.0)) * 100
+                # Check for exhausted state: explicit flag OR missing remainingFraction
+                if q.get('isExhausted') or 'remainingFraction' not in q:
+                    used = 100.0
+                else:
+                    used = (1 - q.get('remainingFraction', 1.0)) * 100
                 rst = q.get('resetTime', '')
                 for g in groups.values():
                     if any(p in mid.lower() for p in g['pat']):
