@@ -37,6 +37,14 @@ def safe_import_claude():
         return None, None
 
 
+def safe_import_copilot():
+    try:
+        from copilot import load_credentials, fetch_usage
+        return load_credentials, fetch_usage
+    except Exception:
+        return None, None
+
+
 def format_reset_time(reset_time_str):
     """Format reset time as HH:MM (~remaining)"""
     if not reset_time_str:
@@ -61,6 +69,7 @@ def format_reset_time(reset_time_str):
         # Format remaining time
         if days > 0:
             remaining_str = f"~{days}D{hours}h{minutes}m"
+            return remaining_str  # Return only relative time if > 24h
         elif hours > 0:
             remaining_str = f"~{hours}h{minutes}m" if minutes > 0 else f"~{hours}h"
         else:
@@ -72,7 +81,7 @@ def format_reset_time(reset_time_str):
 
 
 class UsageWidget:
-    REFRESH_INTERVAL = 60000
+    REFRESH_INTERVAL = 300000
     
     def __init__(self):
         self.root = tk.Tk()
@@ -156,14 +165,25 @@ class UsageWidget:
         # Claude Code rows
         self._create_row("cc_5h", "5 Hour", 7)
         self._create_row("cc_7d", "7 Day", 8)
+
+        # Separator
+        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=9, column=0, columnspan=3, sticky='ew', pady=4)
+        
+        # Copilot section header
+        cp_header = tk.Label(self.content, text="Copilot", bg=self.bg, fg=self.accent, 
+                              font=('Segoe UI', 8, 'bold'), anchor='w')
+        cp_header.grid(row=10, column=0, columnspan=3, sticky='w', pady=(2, 2))
+        
+        # Copilot rows
+        self._create_row("cp_premium", "Premium", 11)
         
         # Update label
         self.update_lbl = tk.Label(self.content, text="", bg=self.bg, fg=self.dim, font=('Segoe UI', 7))
-        self.update_lbl.grid(row=9, column=0, columnspan=3, sticky='e', pady=(4, 0))
+        self.update_lbl.grid(row=13, column=0, columnspan=3, sticky='e', pady=(4, 0))
         
         # Size & position
         self.root.update_idletasks()
-        w, h = 250, 235
+        w, h = 250, 280
         x = self.root.winfo_screenwidth() - w - 20
         y = self.root.winfo_screenheight() - h - 60
         self.root.geometry(f'{w}x{h}+{x}+{y}')
@@ -230,7 +250,8 @@ class UsageWidget:
     def _fetch_data(self):
         ag = self._get_antigravity_data()
         cc = self._get_claude_data()
-        self.root.after(0, lambda: self._update_ui(ag, cc))
+        cp = self._get_copilot_data()
+        self.root.after(0, lambda: self._update_ui(ag, cc, cp))
     
     def _get_antigravity_data(self):
         get_valid_token, load_code_assist, fetch_available_models = safe_import_antigravity()
@@ -299,8 +320,38 @@ class UsageWidget:
             }
         except Exception as e:
             return {'error': str(e)[:12]}
+
+    def _get_copilot_data(self):
+        load_credentials, fetch_usage = safe_import_copilot()
+        if not load_credentials:
+            return {'error': 'No module'}
+        try:
+            token = load_credentials()
+            if not token:
+                return {'error': 'Login'}
+            usage, err = fetch_usage(token)
+            if err or not usage:
+                return {'error': 'API error'}
+            
+            snapshots = usage.get('quota_snapshots', {})
+            
+            # Helper to get usage pct
+            def get_pct(key):
+                item = snapshots.get(key)
+                if not item: return 0
+                
+                if 'percent_remaining' in item:
+                    return 100 - item['percent_remaining']
+                
+                return (1 - item.get('remaining_fraction', 1.0)) * 100
+            
+            return {
+                'premium_pct': get_pct('premium_interactions')
+            }
+        except Exception as e:
+            return {'error': str(e)[:12]}
     
-    def _update_ui(self, ag, cc):
+    def _update_ui(self, ag, cc, cp):
         # Antigravity groups
         if 'error' in ag:
             for k in ['ag_claude', 'ag_gemini', 'ag_flash', 'ag_nano']:
@@ -318,6 +369,12 @@ class UsageWidget:
         else:
             self.update_row('cc_5h', cc['5h_pct'], format_reset_time(cc['5h_rst']))
             self.update_row('cc_7d', cc['7d_pct'], format_reset_time(cc['7d_rst']))
+        
+        # Copilot
+        if 'error' in cp:
+            self.update_row('cp_premium', 0, error=cp['error'])
+        else:
+            self.update_row('cp_premium', cp['premium_pct'])
         
         self.update_lbl.configure(text=f"Updated {datetime.now().strftime('%H:%M')}")
         self.refresh_btn.configure(fg=self.dim)
