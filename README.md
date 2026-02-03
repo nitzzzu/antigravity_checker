@@ -11,10 +11,10 @@
    QUOTA GREMLIN
   "who ate my tokens?"
 ```
-
+  
 > "The gremlin watching your usage."
 
-A feral, single-file Python script to watch your Antigravity AI model quota before it vanishes.
+A feral, single-file Python script to watch your Antigravity, Claude Code and Github Copilot  AI model quota before it vanishes.
 
 ## Features
 
@@ -27,63 +27,28 @@ A feral, single-file Python script to watch your Antigravity AI model quota befo
 
 ```bash
 # Check your quota (login if needed)
-python antigravity_checker.py
+python antigravity.py
 
 # Force new login
-python antigravity_checker.py login
+python antigravity.py login
 
 # Remove stored credentials
-python antigravity_checker.py logout
+python antigravity.py logout
 
 # Show help
-python antigravity_checker.py help
+python antigravity.py help
 ```
 
-## Claude Checker
+## Claude Code
 
 Check your Claude Code usage limits (requires Claude Code login).
 
 ```bash
 # Check usage
-python claude_checker.py
+python claude.py
 
 # Show raw API response
-python claude_checker.py --raw
-```
-
-### Claude Example Output
-
-```
-======================================================================
-  CLAUDE CODE USAGE STATUS
-======================================================================
-
-  5-Hour Limit
-    ██████░░░░  27.0% used  |  73.0% remaining  |  Resets in: 4h12m
-
-  7-Day All Models
-    ░░░░░░░░░░   0.0% used  |  100.0% remaining  |  Resets in: 6d23h
-
-----------------------------------------------------------------------
-  Color Legend: ● Safe (0-50%)  ● Warning (50-80%)  ● Critical (80-100%)
-```
-
-## Antigravity Example Output
-
-```
-============================================================
-  ANTIGRAVITY USAGE STATUS
-============================================================
-
-  MODEL QUOTAS:
-  --------------------------------------------------------
-  Model                          Used         Reset In    
-  --------------------------------------------------------
-  claude-sonnet-4-5              20%          4h 4m       
-  gemini-2.5-flash               0%           4h 59m      
-  gemini-2.5-pro                 0%           4h 59m      
-  gemini-3-flash                 0%           3h 50m      
-  --------------------------------------------------------
+python claude.py --raw
 ```
 
 ## How It Works
@@ -158,7 +123,7 @@ The script communicates with official Google APIs only:
 └─────────────────────────────┘
 ```
 
-A floating desktop widget that displays real-time quota status for both Antigravity and Claude Code.
+A floating desktop widget that displays real-time quota status for Antigravity, Claude Code and Github Copilot.
 
 ### Features
 

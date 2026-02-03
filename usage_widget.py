@@ -23,7 +23,7 @@ sys.path.insert(0, SCRIPT_DIR)
 
 def safe_import_antigravity():
     try:
-        from antigravity_checker import get_valid_token, load_code_assist, fetch_available_models
+        from antigravity import get_valid_token, load_code_assist, fetch_available_models
         return get_valid_token, load_code_assist, fetch_available_models
     except Exception:
         return None, None, None
@@ -31,7 +31,7 @@ def safe_import_antigravity():
 
 def safe_import_claude():
     try:
-        from claude_checker import load_credentials, fetch_usage
+        from claude import load_credentials, fetch_usage
         return load_credentials, fetch_usage
     except Exception:
         return None, None
