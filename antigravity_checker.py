@@ -423,7 +423,7 @@ def format_time_until(reset_time_str):
     except:
         return "?"
 
-def display_quota(models_response, code_assist_response, show_raw=False):
+def display_quota(email, models_response, code_assist_response, show_raw=False):
     """Display quota information"""
     
     # Show raw JSON if requested
@@ -435,9 +435,13 @@ def display_quota(models_response, code_assist_response, show_raw=False):
         print(json.dumps(models_response, indent=2))
         return
     
-    print("\n" + "=" * 90)
-    print("  ANTIGRAVITY USAGE STATUS")
-    print("=" * 90)
+    reset = '\033[0m'
+    bold = '\033[1m'
+    dim = '\033[2m'
+
+    print("=" * 60)
+    print(f"{bold}   🧌 QUOTA GREMLIN - Antigravity Edition{reset}")
+    print("=" * 60)
     
     # -------------------------------------------------------------------------
     # Plan & Tier Info
@@ -460,7 +464,7 @@ def display_quota(models_response, code_assist_response, show_raw=False):
     plan_type = plan_map.get(tier_id, tier_id)
     
     if not JSON_MODE:
-        print(f"\n  Plan: {plan_type} ({tier_name})")
+        print(f"  Plan: {plan_type} ({tier_name}) ({email})")
     
     if monthly > 0:
         used = monthly - available
@@ -496,7 +500,7 @@ def display_quota(models_response, code_assist_response, show_raw=False):
     exhausted_models = sum(1 for m in filtered_models.values() if check_exhausted(m))
     
     if not JSON_MODE:
-        print(f"\n  Total Models: {total_models} ({exhausted_models} exhausted)")
+        print(f"  Total Models: {total_models} ({exhausted_models} exhausted)")
     
     # ANSI color codes
     reset = '\033[0m'
@@ -627,7 +631,7 @@ def check_quota(show_raw=False):
         log("\n[!] Failed to obtain valid credentials.")
         return 1
     
-    log(f"\n[*] Checking quota for: {tokens.get('email', 'Unknown')}")
+    email = tokens.get('email', 'Unknown')
     
     # Load code assist
     code_assist, err = load_code_assist(tokens['access_token'])
@@ -648,10 +652,10 @@ def check_quota(show_raw=False):
     if err:
         log(f"\n[!] Failed to fetch models: {err}")
         # Still display what we can
-        display_quota({}, code_assist, show_raw)
+        display_quota(email, {}, code_assist, show_raw)
         return 1
     
-    display_quota(models, code_assist, show_raw)
+    display_quota(email, models, code_assist, show_raw)
     return 0
 
 def main():

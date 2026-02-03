@@ -85,7 +85,7 @@ class UsageWidget:
     
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("AI Usage")
+        self.root.title("Quota Gremlin 🧌")
         self.root.attributes('-topmost', True)
         self.root.overrideredirect(True)
         try:
@@ -113,7 +113,7 @@ class UsageWidget:
         title_bar.pack(fill='x')
         title_bar.pack_propagate(False)
         
-        self.title_lbl = tk.Label(title_bar, text="⚡ AI Usage", bg='#313244', 
+        self.title_lbl = tk.Label(title_bar, text="🧌 Quota Gremlin", bg='#313244', 
                                    fg=self.accent, font=('Segoe UI', 8, 'bold'))
         self.title_lbl.pack(side='left', padx=6)
         
@@ -141,41 +141,46 @@ class UsageWidget:
         self.content = tk.Frame(self.frame, bg=self.bg)
         self.content.pack(fill='both', expand=True, padx=8, pady=6)
         
+        # Mascot / Mood label
+        self.mascot_lbl = tk.Label(self.content, text='(◉_◉) "careful..."', bg=self.bg, fg=self.dim, 
+                                    font=('Segoe UI', 8), anchor='w')
+        self.mascot_lbl.grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 6))
+
         self.rows = {}
         
         # Antigravity section header
         ag_header = tk.Label(self.content, text="Antigravity", bg=self.bg, fg=self.accent, 
                               font=('Segoe UI', 8, 'bold'), anchor='w')
-        ag_header.grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 2))
+        ag_header.grid(row=1, column=0, columnspan=3, sticky='w', pady=(0, 2))
         
         # Antigravity groups
-        self._create_row("ag_claude", "Claude", 1)
-        self._create_row("ag_gemini", "G3 Pro", 2)
-        self._create_row("ag_flash", "G3 Flash", 3)
-        self._create_row("ag_nano", "Nano 🍌", 4)
+        self._create_row("ag_claude", "Claude", 2)
+        self._create_row("ag_gemini", "G3 Pro", 3)
+        self._create_row("ag_flash", "G3 Flash", 4)
+        self._create_row("ag_nano", "Nano 🍌", 5)
         
         # Separator
-        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=5, column=0, columnspan=3, sticky='ew', pady=4)
+        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=6, column=0, columnspan=3, sticky='ew', pady=4)
         
         # Claude Code section header
         cc_header = tk.Label(self.content, text="Claude Code", bg=self.bg, fg=self.accent, 
                               font=('Segoe UI', 8, 'bold'), anchor='w')
-        cc_header.grid(row=6, column=0, columnspan=3, sticky='w', pady=(2, 2))
+        cc_header.grid(row=7, column=0, columnspan=3, sticky='w', pady=(2, 2))
         
         # Claude Code rows
-        self._create_row("cc_5h", "5 Hour", 7)
-        self._create_row("cc_7d", "7 Day", 8)
+        self._create_row("cc_5h", "5 Hour", 8)
+        self._create_row("cc_7d", "7 Day", 9)
 
         # Separator
-        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=9, column=0, columnspan=3, sticky='ew', pady=4)
+        tk.Frame(self.content, bg=self.bar_bg, height=1).grid(row=10, column=0, columnspan=3, sticky='ew', pady=4)
         
         # Copilot section header
         cp_header = tk.Label(self.content, text="Copilot", bg=self.bg, fg=self.accent, 
                               font=('Segoe UI', 8, 'bold'), anchor='w')
-        cp_header.grid(row=10, column=0, columnspan=3, sticky='w', pady=(2, 2))
+        cp_header.grid(row=11, column=0, columnspan=3, sticky='w', pady=(2, 2))
         
         # Copilot rows
-        self._create_row("cp_premium", "Premium", 11)
+        self._create_row("cp_premium", "Premium", 12)
         
         # Update label
         self.update_lbl = tk.Label(self.content, text="", bg=self.bg, fg=self.dim, font=('Segoe UI', 7))
@@ -183,7 +188,7 @@ class UsageWidget:
         
         # Size & position
         self.root.update_idletasks()
-        w, h = 250, 280
+        w, h = 250, 300
         x = self.root.winfo_screenwidth() - w - 20
         y = self.root.winfo_screenheight() - h - 60
         self.root.geometry(f'{w}x{h}+{x}+{y}')
@@ -378,6 +383,23 @@ class UsageWidget:
         
         self.update_lbl.configure(text=f"Updated {datetime.now().strftime('%H:%M')}")
         self.refresh_btn.configure(fg=self.dim)
+
+        # Update mascot mood
+        max_pct = 0
+        if 'error' not in ag and 'groups' in ag:
+            for g in ag['groups'].values():
+                if g['pct'] > max_pct: max_pct = g['pct']
+        if 'error' not in cc:
+            if cc.get('5h_pct', 0) > max_pct: max_pct = cc['5h_pct']
+        
+        if max_pct >= 90:
+            self.mascot_lbl.configure(text='(x_x) "cooked..."', fg=self.red)
+        elif max_pct >= 80:
+            self.mascot_lbl.configure(text='(◉︵◉) "snack time?"', fg=self.red)
+        elif max_pct >= 50:
+             self.mascot_lbl.configure(text='(◉_◉) "watching..."', fg=self.yellow)
+        else:
+             self.mascot_lbl.configure(text='(◉‿◉) "yummy tokens"', fg=self.dim)
     
     def schedule_refresh(self):
         self.root.after(self.REFRESH_INTERVAL, lambda: (self.refresh_data(), self.schedule_refresh()))

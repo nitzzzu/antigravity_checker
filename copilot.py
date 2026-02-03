@@ -219,7 +219,7 @@ def display_usage(usage_data, show_raw=False):
         return
 
     print("\n" + "="*50)
-    print("  GITHUB COPILOT USAGE")
+    print("  🧌 QUOTA GREMLIN - Copilot Edition")
     print("="*50 + "\n")
     
     # Plan

@@ -1,15 +1,20 @@
-# Antigravity Checker
+# QuotaGremlin 🧌
 
 ```
-    ___          __  _                       _ __       
-   /   |  ____  / /_(_)___ __________ __   _(_) /___  __
-  / /| | / __ \/ __/ / __ `/ ___/ __ `/ | / / / __/ / /
- / ___ |/ / / / /_/ / /_/ / /  / /_/ /| |/ / / /_/ /_/ 
-/_/  |_/_/ /_/\__/_/\__, /_/   \__,_/ |___/_/\__/\__, /  
-                   /____/     Checker           /____/   
+      ⢀⣀⣀⣀⣀⣀⣀⡀
+   ⢠⣾⣿⣿⣿⣿⣿⣿⣿⣦⡀
+  ⢸⣿⣿⡟⠁  ⠈⢻⣿⣿⡇
+  ⢸⣿⣿⣇  👀  ⣸⣿⣿⡇
+   ⠻⣿⣿⣷⣦⣤⣴⣾⣿⣿⠟
+      ⠉⠻⠿⠿⠿⠿⠟⠋
+
+   QUOTA GREMLIN
+  "who ate my tokens?"
 ```
 
-A simple, single-file Python script to check your Antigravity AI model quota.
+> "The gremlin watching your usage."
+
+A feral, single-file Python script to watch your Antigravity AI model quota before it vanishes.
 
 ## Features
 
@@ -46,7 +51,7 @@ python claude_checker.py
 python claude_checker.py --raw
 ```
 
-### Example Output
+### Claude Example Output
 
 ```
 ======================================================================
@@ -136,8 +141,10 @@ The script communicates with official Google APIs only:
 
 ```
 ┌─────────────────────────────┐
-│ ⚡ AI Usage           ↻  ✕ │
+│ 🧌 QuotaGremlin      ↻  ✕ │
 ├─────────────────────────────┤
+│ (◉_◉) "careful..."          │
+│                             │
 │ Antigravity                 │
 │ Claude    ████░░░░░░ 40%    │
 │ G3 Pro    ██░░░░░░░░ 20%    │

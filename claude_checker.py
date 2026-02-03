@@ -363,9 +363,9 @@ def display_usage(usage_data, show_raw=False):
     dim = '\033[2m'
     
     print()
-    print("=" * 70)
-    print(f"{bold}  CLAUDE CODE USAGE STATUS{reset}")
-    print("=" * 70)
+    print("=" * 60)
+    print(f"{bold}   🧌 QUOTA GREMLIN - Claude Edition{reset}")
+    print("=" * 60)
     
     # Rate limit sections
     limits = [
