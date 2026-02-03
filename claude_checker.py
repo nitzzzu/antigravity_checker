@@ -61,8 +61,13 @@ elif _arch in ('arm64', 'aarch64'):
 USER_AGENT = f'claude-checker/{VERSION} {_os}/{_arch}'
 
 # API Config
+# API Config
 API_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
+API_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token'
 API_BETA_HEADER = 'oauth-2025-04-20'
+
+# OAuth Config
+DEFAULT_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
 
 # Check if terminal supports Unicode (fallback to ASCII)
 def supports_unicode():
@@ -90,29 +95,68 @@ def get_credentials_path():
     return Path(home) / '.claude' / '.credentials.json'
 
 def load_credentials():
-    """Load OAuth access token from Claude Code credentials"""
+    """Load OAuth credentials from file"""
     creds_path = get_credentials_path()
     
     if not creds_path.exists():
         return None, f"Credentials file not found at: {creds_path}"
     
     try:
-        with open(creds_path, 'r') as f:
+        with open(creds_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Extract OAuth token
-        oauth_data = data.get('claudeAiOauth', {})
+        # Extract OAuth data
+        # Handle both flat structure and nested claudeAiOauthWrapper
+        oauth_data = data.get('claudeAiOauth', data)
+        
         access_token = oauth_data.get('accessToken')
+        refresh_token = oauth_data.get('refreshToken')
+        expires_at = oauth_data.get('expiresAt')
         
         if not access_token:
             return None, "No access token found in credentials. Please login to Claude Code first."
         
-        return access_token, None
+        return {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'expires_at': expires_at,
+            'full_data': data  # Keep full data to preserve other fields when saving
+        }, None
         
     except json.JSONDecodeError as e:
         return None, f"Failed to parse credentials file: {e}"
     except IOError as e:
         return None, f"Failed to read credentials file: {e}"
+
+def save_credentials(original_data, new_access_token, new_refresh_token, expires_in):
+    """Update credentials file with new tokens"""
+    try:
+        creds_path = get_credentials_path()
+        
+        # Update the specific fields
+        # If it was nested in claudeAiOauth, update it there
+        if 'claudeAiOauth' in original_data:
+            target = original_data['claudeAiOauth']
+        else:
+            target = original_data
+            
+        target['accessToken'] = new_access_token
+        if new_refresh_token:
+            target['refreshToken'] = new_refresh_token
+        
+        # Calculate expiry
+        if expires_in:
+            # Current time + seconds
+            target['expiresAt'] = int(datetime.utcnow().timestamp() * 1000) + (expires_in * 1000)
+            
+        # Write back atomically-ish
+        # Windows doesn't support atomic moves easily without extra libs, so just write
+        with open(creds_path, 'w', encoding='utf-8') as f:
+            json.dump(original_data, f, indent=2)
+            
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 # =============================================================================
 # HTTP Helpers
@@ -138,12 +182,65 @@ def http_get(url, headers=None):
         except urllib.error.URLError as e:
             return None, str(e)
 
+def http_post(url, data=None, headers=None):
+    """Make HTTP POST request"""
+    headers = headers or {}
+    
+    if HAS_REQUESTS:
+        try:
+            resp = requests.post(url, data=data, headers=headers, timeout=30)
+            return resp.status_code, resp.text
+        except requests.RequestException as e:
+            return None, str(e)
+    else:
+        # Encode data
+        if isinstance(data, dict):
+            encoded_data = urlencode(data).encode('utf-8')
+        else:
+            encoded_data = data
+            
+        req = urllib.request.Request(url, data=encoded_data, headers=headers, method='POST')
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status, resp.read().decode('utf-8')
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode('utf-8')
+        except urllib.error.URLError as e:
+            return None, str(e)
+
 # =============================================================================
 # API Calls
 # =============================================================================
 
-def fetch_usage(access_token):
-    """Fetch usage limits from Anthropic API"""
+def refresh_access_token(refresh_token):
+    """Refresh OAuth access token"""
+    client_id = os.environ.get('CLAUDE_CODE_OAUTH_CLIENT_ID', DEFAULT_CLIENT_ID)
+    
+    data = {
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'client_id': client_id
+    }
+    
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': USER_AGENT
+    }
+    
+    status, response = http_post(API_TOKEN_URL, data=data, headers=headers)
+    
+    if status != 200:
+        return None, f"Refresh failed (HTTP {status})"
+        
+    try:
+        return json.loads(response), None
+    except json.JSONDecodeError as e:
+        return None, f"Failed to parse refresh response: {e}"
+
+def fetch_usage(creds_data):
+    """Fetch usage limits from Anthropic API (with auto-refresh)"""
+    access_token = creds_data['access_token']
+    
     headers = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -154,14 +251,44 @@ def fetch_usage(access_token):
     
     status, response = http_get(API_USAGE_URL, headers)
     
+    # Network error
     if status is None:
         return None, f"Network error: {response}"
     
+    # Handle token expiry
     if status == 401:
-        return None, "Authentication failed. Your token may have expired. Please re-login to Claude Code."
+        refresh_token = creds_data.get('refresh_token')
+        if not refresh_token:
+            return None, "Token expired and no refresh token available. Please re-login."
+            
+        print("  [!] Token expired. Refreshing...")
+        new_tokens, err = refresh_access_token(refresh_token)
+        
+        if err:
+            return None, f"Token expired and refresh failed: {err}"
+            
+        # Update credentials
+        new_access = new_tokens.get('access_token')
+        new_refresh = new_tokens.get('refresh_token', refresh_token) # Fallback to old if not rotated
+        expires_in = new_tokens.get('expires_in')
+        
+        success, safe_err = save_credentials(
+            creds_data['full_data'], 
+            new_access, 
+            new_refresh, 
+            expires_in
+        )
+        
+        if not success:
+            print(f"  [!] Failed to save new tokens: {safe_err}")
+            # Continue anyway with new token in memory
+            
+        # Retry request with new token
+        headers['Authorization'] = f'Bearer {new_access}'
+        status, response = http_get(API_USAGE_URL, headers)
     
     if status != 200:
-        return None, f"API error: HTTP {status}"
+        return None, f"API error: HTTP {status} - {response}"
     
     try:
         return json.loads(response), None
@@ -307,16 +434,16 @@ def check_usage(show_raw=False):
     """Main function to check usage"""
     
     # Load credentials
-    token, err = load_credentials()
+    creds, err = load_credentials()
     if err:
         print(f"\n[!] {err}")
-        print("\n    To login, run Claude Code and use /login command.")
+        print("\n    To login, run `claude doctor` or just use Claude Code normally.")
         return 1
     
     print("\n[*] Loading Claude Code usage...")
     
     # Fetch usage
-    usage, err = fetch_usage(token)
+    usage, err = fetch_usage(creds)
     if err:
         print(f"\n[!] Failed to fetch usage: {err}")
         return 1

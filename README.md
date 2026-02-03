@@ -177,6 +177,10 @@ pythonw usage_widget.py
 1. Press `Win + R`, type `shell:startup`, press Enter
 2. Create a shortcut to `pythonw C:\path\to\usage_widget.py`
 
+## Refrences
+
+https://github.com/steipete/CodexBar/tree/main/docs
+
 ## License
 
 MIT
